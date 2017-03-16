@@ -36,7 +36,11 @@ const GRID_COORS = GRID.reduce((acc, row, x) =>
 , []);
 
 function withinBounds(grid, x, y) {
-  return x >= 0 && x < grid.length && y >= 0 && y < grid[0].length && !grid[x][y].wall;
+  return x >= 0 && x < grid.length && y >= 0 && y < grid[0].length;
+}
+
+function isEmptyCell(grid, x, y) {
+  return withinBounds(grid, x, y) && !grid[x][y].wall;
 }
 
 c.setAttribute('width', CANVAS_WIDTH.toString());
@@ -105,7 +109,7 @@ function nextState(grid) {
     let volume = val;
 
     if (withinGrid(x, y - 1) && grid[x][y - 1].val < cell.val && cell.val > 100) {
-      const diff = Math.floor((val - grid[x][y - 1].val) / 5);
+      const diff = Math.floor((val - grid[x][y - 1].val) / 10);
       grid[x][y - 1].diff += diff;
       cell.diff -= diff;
       volume -= diff;
@@ -183,8 +187,8 @@ function render(context, grid) {
       let cellHeight = CELL_SIZE - 1;
       let cellY = (y * CELL_SIZE) + 1;
 
-      const hasBottomNeighbor = (!withinBounds(grid, x, y + 1) || grid[x][y + 1].val > 0);
-      const hasNoTopNeighbor = (withinBounds(grid, x, y - 1) && grid[x][y - 1].val <= 0);
+      const hasBottomNeighbor = (!isEmptyCell(grid, x, y + 1) || grid[x][y + 1].val > 0);
+      const hasNoTopNeighbor = (!isEmptyCell(grid, x, y - 1) || grid[x][y - 1].val <= 0);
 
       if (val < 100 && hasBottomNeighbor && hasNoTopNeighbor) {
         cellHeight *= parseFloat(val) / 100;
