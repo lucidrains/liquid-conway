@@ -12,7 +12,7 @@ c.oncontextmenu = (e) => {
 };
 
 const FPS = 30;
-const WIDTH = 60;
+const WIDTH = 80;
 const HEIGHT = 60;
 const CELL_SIZE = 10;
 const CANVAS_WIDTH = WIDTH * CELL_SIZE;
@@ -50,15 +50,18 @@ c.style.display = 'block';
 
 const ctx = c.getContext('2d');
 
-Rx.Observable
-  .fromEvent(c, 'mousedown')
+Rx.Observable.merge(
+    Rx.Observable.fromEvent(c, 'mousedown'),
+    Rx.Observable.fromEvent(c, 'touchstart')
+  )
   .flatMap((md) => {
     md.preventDefault();
     let ev = md;
 
     return Rx.Observable.merge(
         Rx.Observable.interval(10).map(() => null),
-        Rx.Observable.fromEvent(c, 'mousemove')
+        Rx.Observable.fromEvent(c, 'mousemove'),
+        Rx.Observable.fromEvent(c, 'touchmove')
       )
       .map((mm) => {
         ev = mm || ev;
@@ -66,13 +69,18 @@ Rx.Observable
       })
       .takeUntil(Rx.Observable.merge(
         Rx.Observable.fromEvent(c, 'mouseup'),
-        Rx.Observable.fromEvent(c, 'mouseout')
+        Rx.Observable.fromEvent(c, 'mouseout'),
+        Rx.Observable.fromEvent(c, 'touchend')
       ));
   })
   .throttleTime(10)
   .subscribe(({ ev, which }) => {
-    const { clientX, clientY, target } = ev;
+    const { target, touches, type } = ev;
+    const isTouch = type === 'touchmove' || type === 'touchstart';
+
     const { left, top } = target.getBoundingClientRect();
+    const { clientX, clientY } = isTouch ? touches[0] : ev;
+
     const x = clientX - left;
     const y = clientY - top;
     const [cx, cy] = [x, y].map(el => Math.floor(el / CELL_SIZE));
@@ -81,12 +89,14 @@ Rx.Observable
       return;
     }
 
-    if (which === 3) {
-      GRID[cx][cy].wall = true;
-      GRID[cx][cy].val = 0;
-    } else if (which === 1) {
-      delete GRID[cx][cy].wall;
-      GRID[cx][cy].val += 100;
+    const cell = GRID[cx][cy];
+
+    if (which === 1 || isTouch) {
+      delete cell.wall;
+      cell.val += 100;
+    } else if (which === 3) {
+      cell.wall = true;
+      cell.val = 0;
     }
   });
 
@@ -109,24 +119,6 @@ function nextState(grid) {
 
     let volume = val;
 
-    if (withinGrid(x, y - 1) && grid[x][y - 1].val < cell.val && cell.val > 100) {
-      const diff = Math.floor((val - grid[x][y - 1].val) / 20);
-      grid[x][y - 1].diff += diff;
-      cell.diff -= diff;
-      volume -= diff;
-    }
-
-    if (withinGrid(x, y + 1) && grid[x][y + 1].val < cell.val) {
-      const diff = Math.floor((val - grid[x][y + 1].val) / 10);
-      grid[x][y + 1].diff += diff;
-      cell.diff -= diff;
-      volume -= diff;
-    }
-
-    if (volume < 0) {
-      return;
-    }
-
     const flowCoors = [[1, 0], [-1, 0]]
       .filter(([dx, dy]) => {
         const [nx, ny] = [x + dx, y + dy];
@@ -148,11 +140,30 @@ function nextState(grid) {
 
     diffs.forEach((diff, i) => {
       const [dx, dy] = flowCoors[i];
-      const weightedDiff = Math.floor(finalDiff * (diff / totalDiff)) / 3;
+      const weightedDiff = Math.floor(finalDiff * (diff / totalDiff)) / 2;
 
       grid[x][y].diff -= weightedDiff;
       grid[x + dx][y + dy].diff += weightedDiff;
+      volume -= weightedDiff;
     });
+
+    if (volume < 0) {
+      return;
+    }
+
+    if (withinGrid(x, y - 1) && grid[x][y - 1].val < cell.val && cell.val > 100) {
+      const diff = Math.floor((val - grid[x][y - 1].val) / 20);
+      grid[x][y - 1].diff += diff;
+      cell.diff -= diff;
+      volume -= diff;
+    }
+
+    if (withinGrid(x, y + 1) && grid[x][y + 1].val < cell.val) {
+      const diff = Math.floor((val - grid[x][y + 1].val) / 10);
+      grid[x][y + 1].diff += diff;
+      cell.diff -= diff;
+      volume -= diff;
+    }
   });
 
   GRID_COORS.forEach(([x, y]) => {
