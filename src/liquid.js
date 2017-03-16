@@ -18,10 +18,11 @@ const CELL_SIZE = 10;
 const CANVAS_WIDTH = WIDTH * CELL_SIZE;
 const CANVAS_HEIGHT = HEIGHT * CELL_SIZE;
 
-const CELL_FILL_STYLE = 'rgb(22, 109, 175)';
-const CELL_COLOR_LIGHT = 'rgb(100, 154, 239)';
-const CELL_COLOR_DARK = 'rgb(44, 117, 232)';
-const CELL_COLOR_DARKEST = 'rgb(8, 92, 224)';
+const CELL_COLOR_LIGHTEST = 'rgb(0, 204, 255)';
+const CELL_COLOR_LIGHT = 'rgb(0, 153, 255)';
+const CELL_COLOR = 'rgb(0, 102, 255)';
+const CELL_COLOR_DARK = 'rgb(51, 102, 255)';
+const CELL_COLOR_DARKEST = 'rgb(51, 51, 204)';
 
 const BACKGROUND_COLOR = 'rgb(255, 255, 255)';
 
@@ -109,14 +110,14 @@ function nextState(grid) {
     let volume = val;
 
     if (withinGrid(x, y - 1) && grid[x][y - 1].val < cell.val && cell.val > 100) {
-      const diff = Math.floor((val - grid[x][y - 1].val) / 10);
+      const diff = Math.floor((val - grid[x][y - 1].val) / 20);
       grid[x][y - 1].diff += diff;
       cell.diff -= diff;
       volume -= diff;
     }
 
     if (withinGrid(x, y + 1) && grid[x][y + 1].val < cell.val) {
-      const diff = Math.floor((val - grid[x][y + 1].val) / 5);
+      const diff = Math.floor((val - grid[x][y + 1].val) / 10);
       grid[x][y + 1].diff += diff;
       cell.diff -= diff;
       volume -= diff;
@@ -147,7 +148,7 @@ function nextState(grid) {
 
     diffs.forEach((diff, i) => {
       const [dx, dy] = flowCoors[i];
-      const weightedDiff = Math.floor(finalDiff * (diff / totalDiff)) / 2;
+      const weightedDiff = Math.floor(finalDiff * (diff / totalDiff)) / 3;
 
       grid[x][y].diff -= weightedDiff;
       grid[x + dx][y + dy].diff += weightedDiff;
@@ -183,7 +184,7 @@ function render(context, grid) {
         return;
       }
 
-      let fillStyle = CELL_FILL_STYLE;
+      let fillStyle = CELL_COLOR;
       let cellHeight = CELL_SIZE - 1;
       let cellY = (y * CELL_SIZE) + 1;
 
@@ -195,12 +196,14 @@ function render(context, grid) {
         cellY += (CELL_SIZE - cellHeight);
       }
 
-      if (val < 80) {
+      if (val < 50) {
+        fillStyle = CELL_COLOR_LIGHTEST;
+      } else if (val < 80) {
         fillStyle = CELL_COLOR_LIGHT;
-      } else if (val > 120) {
-        fillStyle = CELL_COLOR_DARK;
       } else if (val > 150) {
         fillStyle = CELL_COLOR_DARKEST;
+      } else if (val > 120) {
+        fillStyle = CELL_COLOR_DARK;
       }
 
       context.fillStyle = fillStyle;
