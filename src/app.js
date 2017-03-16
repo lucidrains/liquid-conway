@@ -1,13 +1,13 @@
-require('./app.sass')
-
 import Rx from 'rxjs';
-import helpers from './helpers'
+import helpers from './helpers';
+
+require('./app.sass');
 
 const {
   range,
   initArray,
   cacheFn
-} = helpers
+} = helpers;
 
 const c = document.getElementById('canvas');
 
@@ -22,7 +22,7 @@ const BACKGROUND_COLOR = 'rgba(255, 255, 255, 0.5)';
 const NEIGHBOR_COORS_CACHE = {};
 
 const DIR = range(-1, 1)
-  .reduce((acc, x) => acc.concat(range(-1, 1).map((y) => [x, y])), [])
+  .reduce((acc, x) => acc.concat(range(-1, 1).map(y => [x, y])), [])
   .filter(([x, y]) => !(x === 0 && y === 0));
 
 c.setAttribute('width', CANVAS_WIDTH.toString());
@@ -30,33 +30,8 @@ c.setAttribute('height', CANVAS_HEIGHT.toString());
 c.style.display = 'block';
 const ctx = c.getContext('2d');
 
-const mousedrag = Rx.Observable
-  .fromEvent(c, 'mousedown')
-  .flatMap((md) => {
-    md.preventDefault();
-    let ev = md;
-
-    return Rx.Observable.merge(
-        Rx.Observable.interval(100).map(el => null),
-        Rx.Observable.fromEvent(c, 'mousemove')
-      )
-      .map(mm => {
-        ev = mm || ev;
-        const {left, top} = ev.target.getBoundingClientRect();
-        const x = ev.clientX - left;
-        const y = ev.clientY - top;
-        const [coorX, coorY] = [x, y].map(el => Math.floor(el / CELL_SIZE));
-        return [coorX, coorY];
-      })
-      .takeUntil(Rx.Observable.fromEvent(c, 'mouseup'));
-  })
-  .throttleTime(50)
-  .subscribe(([x, y]) => {
-    grid[x][y] = 1;
-  });
-
 function initGrid(x, y, init) {
-  return initArray(x, init).map(row => initArray(y, init));
+  return initArray(x, init).map(() => initArray(y, init));
 }
 
 let [
@@ -76,8 +51,33 @@ GRID_COORS.forEach(([x, y]) => {
   grid[x][y] = Math.round(Math.random());
 });
 
+Rx.Observable
+  .fromEvent(c, 'mousedown')
+  .flatMap((md) => {
+    md.preventDefault();
+    let ev = md;
+
+    return Rx.Observable.merge(
+        Rx.Observable.interval(10).map(() => null),
+        Rx.Observable.fromEvent(c, 'mousemove')
+      )
+      .map((mm) => {
+        ev = mm || ev;
+        const { left, top } = ev.target.getBoundingClientRect();
+        const x = ev.clientX - left;
+        const y = ev.clientY - top;
+        const [coorX, coorY] = [x, y].map(el => Math.floor(el / CELL_SIZE));
+        return [coorX, coorY];
+      })
+      .takeUntil(Rx.Observable.fromEvent(c, 'mouseup'));
+  })
+  .throttleTime(10)
+  .subscribe(([x, y]) => {
+    grid[x][y] = 1;
+  });
+
 function withinBounds(grid, x, y) {
-  return x >= 0 && x < grid.length && y >=0 && y < grid[0].length;
+  return x >= 0 && x < grid.length && y >= 0 && y < grid[0].length;
 }
 
 function getNeighborCoors(grid, x, y) {
@@ -108,7 +108,7 @@ function countNeighborsAlive(grid, x, y) {
 }
 
 function computeNextState(curr, neighbors) {
-  return (curr === 1 && neighbors === 2 || neighbors === 3) ? 1 : 0;
+  return ((curr === 1 && neighbors === 2) || neighbors === 3) ? 1 : 0;
 }
 
 function nextState(grid, buffer) {
@@ -121,16 +121,15 @@ function nextState(grid, buffer) {
 
 function render(ctx, grid) {
   ctx.fillStyle = BACKGROUND_COLOR;
-
-  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   GRID_COORS.forEach(([x, y]) => {
     const cell = grid[x][y];
     if (cell === 1) {
       ctx.fillStyle = CELL_FILL_STYLE;
       ctx.fillRect(
-        x * CELL_SIZE + 1,
-        y * CELL_SIZE + 1,
+        (x * CELL_SIZE) + 1,
+        (y * CELL_SIZE) + 1,
         CELL_SIZE - 1,
         CELL_SIZE - 1
       );

@@ -20,7 +20,7 @@ function cacheFn(fn, cacheObj, deriveKeyFn) {
     } else {
       key = deriveKeyFn(...args);
     }
-    
+
     if (cacheObj[key] !== undefined) {
       return cacheObj[key];
     }
@@ -40,4 +40,4 @@ export default {
   range,
   initArray,
   randInt
-}
+};

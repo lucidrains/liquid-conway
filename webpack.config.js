@@ -1,6 +1,6 @@
-const ExtractTextPlugin = require("extract-text-webpack-plugin");
+const path = require('path');
+const ExtractTextPlugin = require('extract-text-webpack-plugin');
 
-const path = require('path')
 const src = path.resolve(__dirname, 'src');
 const dist = path.resolve(__dirname, 'dist');
 
@@ -42,8 +42,8 @@ const config = {
     }]
   },
   plugins: [
-    new ExtractTextPlugin("styles.css")
+    new ExtractTextPlugin('styles.css')
   ]
-}
+};
 
-module.exports = config
+module.exports = config;

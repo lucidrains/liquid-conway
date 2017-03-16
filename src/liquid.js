@@ -1,20 +1,15 @@
-require('./app.sass')
-import Color from 'color';
 import Rx from 'rxjs';
-import helpers from './helpers'
+import helpers from './helpers';
 
-const {
-  range,
-  initArray,
-  cacheFn,
-  randInt
-} = helpers
+require('./app.sass');
+
+const { initArray } = helpers;
 
 const c = document.getElementById('canvas');
 
 c.oncontextmenu = (e) => {
   e.preventDefault();
-}
+};
 
 const FPS = 30;
 const WIDTH = 60;
@@ -24,21 +19,25 @@ const CANVAS_WIDTH = WIDTH * CELL_SIZE;
 const CANVAS_HEIGHT = HEIGHT * CELL_SIZE;
 
 const CELL_FILL_STYLE = 'rgb(22, 109, 175)';
-const CELL_COLOR = Color(CELL_FILL_STYLE);
-
-function rgbString({r, g, b}) {
-  return `rgb(${r}, ${g}, ${b})`;
-}
-
-const CELL_COLOR_LIGHT = rgbString(CELL_COLOR.lighten(0.2).rgb());
-const CELL_COLOR_DARK = rgbString(CELL_COLOR.darken(0.2).rgb());
+const CELL_COLOR_LIGHT = 'rgb(100, 154, 239)';
+const CELL_COLOR_DARK = 'rgb(44, 117, 232)';
+const CELL_COLOR_DARKEST = 'rgb(8, 92, 224)';
 
 const BACKGROUND_COLOR = 'rgb(255, 255, 255)';
-const NEIGHBOR_COORS_CACHE = {};
 
-const DIR = range(-1, 1)
-  .reduce((acc, x) => acc.concat(range(-1, 1).map((y) => [x, y])), [])
-  .filter(([x, y]) => !(x === 0 && y === 0));
+function initGrid(x, y, init) {
+  return initArray(x, init).map(() => initArray(y, init));
+}
+
+const GRID = initGrid(WIDTH, HEIGHT, { val: 0, diff: 0 });
+
+const GRID_COORS = GRID.reduce((acc, row, x) =>
+  acc.concat(row.map((_, y) => [x, y]))
+, []);
+
+function withinBounds(grid, x, y) {
+  return x >= 0 && x < grid.length && y >= 0 && y < grid[0].length && !grid[x][y].wall;
+}
 
 c.setAttribute('width', CANVAS_WIDTH.toString());
 c.setAttribute('height', CANVAS_HEIGHT.toString());
@@ -46,56 +45,45 @@ c.style.display = 'block';
 
 const ctx = c.getContext('2d');
 
-const mousedrag = Rx.Observable
+Rx.Observable
   .fromEvent(c, 'mousedown')
   .flatMap((md) => {
     md.preventDefault();
     let ev = md;
 
     return Rx.Observable.merge(
-        Rx.Observable.interval(100).map(el => null),
+        Rx.Observable.interval(10).map(() => null),
         Rx.Observable.fromEvent(c, 'mousemove')
       )
-      .map(mm => {
+      .map((mm) => {
         ev = mm || ev;
-        return {ev, which: md.which};
+        return { ev, which: md.which };
       })
       .takeUntil(Rx.Observable.merge(
         Rx.Observable.fromEvent(c, 'mouseup'),
         Rx.Observable.fromEvent(c, 'mouseout')
       ));
   })
-  .throttleTime(20)
-  .subscribe(({ev, which}) => {
-    const {clientX, clientY, target} = ev;
-    const {left, top} = target.getBoundingClientRect();
+  .throttleTime(10)
+  .subscribe(({ ev, which }) => {
+    const { clientX, clientY, target } = ev;
+    const { left, top } = target.getBoundingClientRect();
     const x = clientX - left;
     const y = clientY - top;
     const [cx, cy] = [x, y].map(el => Math.floor(el / CELL_SIZE));
 
+    if (!withinBounds(GRID, cx, cy)) {
+      return;
+    }
+
     if (which === 3) {
-      grid[cx][cy].wall = true;
-      grid[cx][cy].val = 0;
+      GRID[cx][cy].wall = true;
+      GRID[cx][cy].val = 0;
     } else if (which === 1) {
-      delete grid[cx][cy].wall
-      grid[cx][cy].val += 100;
+      delete GRID[cx][cy].wall;
+      GRID[cx][cy].val += 100;
     }
   });
-
-function initGrid(x, y, init) {
-  return initArray(x, init).map(row => initArray(y, init));
-}
-
-const grid = initGrid(WIDTH, HEIGHT, {val: 0, diff: 0});
-
-const GRID_COORS = grid.reduce((acc, row, x) => {
-  acc = acc.concat(row.map((_, y) => [x, y]));
-  return acc;
-}, []);
-
-function withinBounds(grid, x, y) {
-  return x >= 0 && x < grid.length && y >=0 && y < grid[0].length && !grid[x][y].wall;
-}
 
 function nextState(grid) {
   const withinGrid = withinBounds.bind(null, grid);
@@ -108,26 +96,30 @@ function nextState(grid) {
       return;
     }
 
-    if (withinGrid(x, y+1) && grid[x][y+1].val < 100) {
+    if (withinGrid(x, y + 1) && grid[x][y + 1].val < 100) {
       cell.diff -= val;
-      grid[x][y+1].diff += val;
+      grid[x][y + 1].diff += val;
       return;
     }
 
     let volume = val;
 
-    if (withinGrid(x, y-1) && grid[x][y-1].val < cell.val && cell.val > 100) {
-      const diff = Math.floor((val - grid[x][y-1].val) / 4);
-      grid[x][y-1].diff += diff;
+    if (withinGrid(x, y - 1) && grid[x][y - 1].val < cell.val && cell.val > 100) {
+      const diff = Math.floor((val - grid[x][y - 1].val) / 5);
+      grid[x][y - 1].diff += diff;
       cell.diff -= diff;
       volume -= diff;
     }
 
-    if (withinGrid(x, y+1) && grid[x][y+1].val < cell.val) {
-      const diff = Math.floor((val - grid[x][y+1].val) / 4);
-      grid[x][y+1].diff += diff;
+    if (withinGrid(x, y + 1) && grid[x][y + 1].val < cell.val) {
+      const diff = Math.floor((val - grid[x][y + 1].val) / 5);
+      grid[x][y + 1].diff += diff;
       cell.diff -= diff;
       volume -= diff;
+    }
+
+    if (volume < 0) {
+      return;
     }
 
     const flowCoors = [[1, 0], [-1, 0]]
@@ -136,12 +128,25 @@ function nextState(grid) {
         return withinGrid(nx, ny) && val > grid[nx][ny].val;
       });
 
-    flowCoors.forEach(([dx, dy]) => {
+    const diffs = flowCoors.map(([dx, dy]) => {
       const [nx, ny] = [x + dx, y + dy];
-      const diff = (volume <= 0) ? 0 : Math.floor(Math.min(volume, val - grid[nx][ny].val));
-      const weightedDiff = Math.floor(diff / flowCoors.length / 2);
-      grid[nx][ny].diff += weightedDiff;
-      cell.diff -= weightedDiff;
+      const diff = val - grid[nx][ny].val;
+      return diff;
+    });
+
+    const totalDiff = diffs.reduce((acc, diff) => {
+      acc += diff;
+      return acc;
+    }, 0);
+
+    const finalDiff = Math.min(volume, totalDiff);
+
+    diffs.forEach((diff, i) => {
+      const [dx, dy] = flowCoors[i];
+      const weightedDiff = Math.floor(finalDiff * (diff / totalDiff)) / 2;
+
+      grid[x][y].diff -= weightedDiff;
+      grid[x + dx][y + dy].diff += weightedDiff;
     });
   });
 
@@ -152,47 +157,54 @@ function nextState(grid) {
   });
 }
 
-function render(ctx, grid) {
-  ctx.fillStyle = BACKGROUND_COLOR;
-  ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
+function render(context, grid) {
+  context.fillStyle = BACKGROUND_COLOR;
+  context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   GRID_COORS.forEach(([x, y]) => {
-    if (grid[x][y].wall) {
-      ctx.fillStyle = 'black';
-      ctx.fillRect(
-        x * CELL_SIZE + 1,
-        y * CELL_SIZE + 1,
+    const cell = grid[x][y];
+
+    if (cell.wall) {
+      context.fillStyle = 'black';
+      context.fillRect(
+        (x * CELL_SIZE) + 1,
+        (y * CELL_SIZE) + 1,
         CELL_SIZE,
         CELL_SIZE
       );
     } else {
-      const val = grid[x][y].val;
+      const val = cell.val;
 
       if (val <= 0) {
         return;
       }
 
-      let fillStyle = CELL_FILL_STYLE;    
-      let valHeight = CELL_SIZE - 1;
-      let valY = (y * CELL_SIZE + 1);
+      let fillStyle = CELL_FILL_STYLE;
+      let cellHeight = CELL_SIZE - 1;
+      let cellY = (y * CELL_SIZE) + 1;
 
-      if (val < 100 && (!withinBounds(grid, x, y + 1) || grid[x][y + 1].val > 0) && (withinBounds(grid, x, y - 1) && grid[x][y - 1].val <= 0)) {
-        valHeight *= parseFloat(val) / 100;
-        valY += (CELL_SIZE - valHeight);
+      const hasBottomNeighbor = (!withinBounds(grid, x, y + 1) || grid[x][y + 1].val > 0);
+      const hasNoTopNeighbor = (withinBounds(grid, x, y - 1) && grid[x][y - 1].val <= 0);
+
+      if (val < 100 && hasBottomNeighbor && hasNoTopNeighbor) {
+        cellHeight *= parseFloat(val) / 100;
+        cellY += (CELL_SIZE - cellHeight);
       }
 
       if (val < 80) {
         fillStyle = CELL_COLOR_LIGHT;
       } else if (val > 120) {
         fillStyle = CELL_COLOR_DARK;
+      } else if (val > 150) {
+        fillStyle = CELL_COLOR_DARKEST;
       }
 
-      ctx.fillStyle = fillStyle;
-      ctx.fillRect(
-        x * CELL_SIZE + 1,
-        valY,
+      context.fillStyle = fillStyle;
+      context.fillRect(
+        (x * CELL_SIZE) + 1,
+        cellY,
         CELL_SIZE - 1,
-        valHeight
+        cellHeight
       );
     }
   });
@@ -207,7 +219,7 @@ function step() {
   const diff = now - start;
   start = now;
 
-  render(ctx, grid);
+  render(ctx, GRID);
 
   const callNextFrame = window.requestAnimationFrame.bind(null, step);
   if (diff > throttleDiff) {
@@ -220,5 +232,5 @@ function step() {
 step();
 
 setInterval(() => {
-  nextState(grid);
-}, 30);
+  nextState(GRID);
+}, 50);
