@@ -27,6 +27,7 @@ const DIR = range(-1, 1)
 
 c.setAttribute('width', CANVAS_WIDTH.toString());
 c.setAttribute('height', CANVAS_HEIGHT.toString());
+c.style.display = 'block';
 const ctx = c.getContext('2d');
 
 const mousedrag = Rx.Observable
