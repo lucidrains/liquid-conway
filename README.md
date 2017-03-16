@@ -12,5 +12,6 @@ $ npm start
 In a new terminal
 
 ```
-$ open index.html
+$ open index.html   # for regular conway
+$ open liquid.html  # for liquid conway
 ```
